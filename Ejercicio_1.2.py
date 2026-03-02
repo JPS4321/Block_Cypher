@@ -1,63 +1,66 @@
 from Crypto.Cipher import DES3
 from Crypto.Util.Padding import pad, unpad
+
+from Avances.Generacion_Llaves import key_3des
+
 import secrets
 
-def generar_clave_3des(longitud=24):
-    if longitud not in (16, 24):
-        raise ValueError("La clave debe ser de 16 o 24 bytes")
-    
-    while True:
-        clave = secrets.token_bytes(longitud)
-        try:
-            
-            clave_ajustada = DES3.adjust_key_parity(clave)
-            DES3.new(clave_ajustada, DES3.MODE_CBC)  
-            return clave_ajustada
-        except ValueError:
-           
-            continue
+
+BLOCK_SIZE = 8 
 
 
-def generar_iv():
-    return secrets.token_bytes(8)
+def generar_iv() -> bytes:
+    return secrets.token_bytes(BLOCK_SIZE)
 
-def cifrar_3des(mensaje: str, clave: bytes):
-    
+
+def ajustar_clave_paridad(clave: bytes) -> bytes:
+    """
+    DES3 requiere bits de paridad correctos.
+    """
+    return DES3.adjust_key_parity(clave)
+
+
+def cifrar_3des_cbc(mensaje: str, clave: bytes):
     iv = generar_iv()
-    
+
     cipher = DES3.new(clave, DES3.MODE_CBC, iv)
-    
-    mensaje_bytes = mensaje.encode()
-    
-    mensaje_padded = pad(mensaje_bytes, DES3.block_size)
-    
+
+    mensaje_bytes = mensaje.encode("utf-8")
+    mensaje_padded = pad(mensaje_bytes, BLOCK_SIZE)
+
     ciphertext = cipher.encrypt(mensaje_padded)
-    
+
     return iv, ciphertext
 
 
-def descifrar_3des(ciphertext: bytes, clave: bytes, iv: bytes):
-    
+def descifrar_3des_cbc(ciphertext: bytes, clave: bytes, iv: bytes) -> str:
     cipher = DES3.new(clave, DES3.MODE_CBC, iv)
-    
+
     mensaje_padded = cipher.decrypt(ciphertext)
-    
-    mensaje = unpad(mensaje_padded, DES3.block_size)
-    
-    return mensaje.decode()
+    mensaje = unpad(mensaje_padded, BLOCK_SIZE)
+
+    return mensaje.decode("utf-8")
 
 
-clave = generar_clave_3des(24)
+if __name__ == "__main__":
+    clave_raw = key_3des(192)
+    clave = ajustar_clave_paridad(clave_raw)
 
-mensaje = "Cifrado 3DES en modo CBC correctamente implementado"
+    mensaje = "Cifrado 3DES en modo CBC correctamente implementado"
 
-print("Mensaje original:", mensaje)
+    print("Mensaje original:", mensaje)
+    print("Clave (hex):", clave.hex())
 
-iv, cifrado = cifrar_3des(mensaje, clave)
+    iv, ciphertext = cifrar_3des_cbc(mensaje, clave)
 
-print("IV:", iv.hex())
-print("Ciphertext:", cifrado.hex())
+    print("IV:", iv.hex())
+    print("Ciphertext:", ciphertext.hex())
 
-mensaje_descifrado = descifrar_3des(cifrado, clave, iv)
+    mensaje_descifrado = descifrar_3des_cbc(ciphertext, clave, iv)
 
-print("Mensaje descifrado:", mensaje_descifrado)
+    print("Mensaje descifrado:", mensaje_descifrado)
+
+    if mensaje == mensaje_descifrado:
+        print("Validación correcta")
+    else:
+        print("Error en descifrado")
